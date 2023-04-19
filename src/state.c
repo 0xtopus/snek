@@ -23,8 +23,54 @@ static void update_head(game_state_t* state, unsigned int snum);
 
 /* Task 1 */
 game_state_t* create_default_state() {
-  // TODO: Implement this function.
-  return NULL;
+    
+    game_state_t *default_state = malloc(sizeof(game_state_t));
+    
+    /* Set row number */
+    default_state->num_rows = 18;
+
+    /* Init the board */
+    default_state->board = malloc(sizeof(char *) * default_state->num_rows);
+    for (int i = 0; i < default_state->num_rows; i++) {
+        *(default_state->board + i) = malloc(sizeof(char) * 21); // an extra bit for '\0'
+        default_state->board[i][20] = '\0';
+    }
+
+    /* Set up game board */
+    for (int i = 0; i < 20; i++) {
+        default_state->board[0][i] = '#';
+        default_state->board[17][i] = '#';
+    }
+    
+    for (int i = 0; i < 20; i++) {
+        if (i == 0 || i == 19) {
+            default_state->board[1][i] = '#';
+            continue;
+        }
+        default_state->board[1][i] = ' ';
+    }
+
+    for (int i = 2; i < default_state->num_rows - 1; i++) {
+        strcpy(default_state->board[i], default_state->board[1]);
+    }
+
+    /* Hardcode snack and friut */
+    default_state->board[2][2] = 'd';
+    default_state->board[2][3] = '>';
+    default_state->board[2][4] = 'D';
+
+    default_state->board[2][9] = '*';
+
+    /* Set up snake */
+    default_state->num_snakes = 1;
+    default_state->snakes = malloc(sizeof(snake_t) * default_state->num_snakes);
+    default_state->snakes->tail_row = 2;
+    default_state->snakes->tail_col = 2;
+    default_state->snakes->head_row = 2;
+    default_state->snakes->head_col = 4;
+    default_state->snakes->live = 1;
+
+    return default_state;
 }
 
 /* Task 2 */
