@@ -21,6 +21,9 @@ static char next_square(game_state_t* state, unsigned int snum);
 static void update_tail(game_state_t* state, unsigned int snum);
 static void update_head(game_state_t* state, unsigned int snum);
 
+static void find_tail(game_state_t* state, unsigned snum);
+static bool match_head(game_state_t* state, unsigned row, unsigned col, unsigned snum);
+
 /* Task 1 */
 game_state_t* create_default_state() {
     
@@ -340,8 +343,85 @@ void update_state(game_state_t* state, int (*add_food)(game_state_t* state)) {
 
 /* Task 5 */
 game_state_t* load_board(char* filename) {
-  // TODO: Implement this function.
-  return NULL;
+
+    FILE* fp = fopen(filename, "r");
+    if (fp == NULL) {
+        printf("\nError, file \"%s\" cannot be opened!\n",filename);
+        return NULL;
+    }
+
+    unsigned int count_row = 0;
+    char the_board;
+    while ((the_board = fgetc(fp)) != EOF) {
+        if (the_board == '\n') {
+            count_row++;
+        }
+    }
+    game_state_t* state = malloc(sizeof(game_state_t));
+    state->board = malloc(sizeof(char*) * count_row);
+    state->num_rows = count_row;
+
+    /* Reset file pointer to beginning of file */
+    fseek(fp, 0, SEEK_SET);
+
+    /* allocate sizes of each line */
+    unsigned int str_len = 0;
+    int row = 0;
+    while ((the_board = fgetc(fp)) != EOF) {
+        if (the_board == '\n') {
+            state->board[row] = malloc(sizeof(char) * (str_len + 1));
+            str_len = 0;
+            row++;
+        } else {
+            str_len++;
+        }
+    }
+
+    /* Reset file pointer to beginning of file */
+    fseek(fp, 0, SEEK_SET);
+    
+    for (int i = 0; i < count_row; i++) {
+        for (int j = 0; ; j++) {
+            if ((the_board = fgetc(fp)) == '\n') {
+                state->board[i][j] = '\0';
+                break;
+            }
+            state->board[i][j] = the_board;
+        }
+    }
+
+//  A better version but test unfriendly:
+
+//    char buffer[2000];
+//    unsigned int count_row = 0;
+
+//    while (fgets(buffer, 2000, fp)) {
+//        count_row++;
+        // printf("\nBuffer is: %s.\n", buffer);
+        // printf("Strlen is: %d.\n", strlen(buffer));
+//    }
+
+    /* Reset file pointer to beginning of file */
+//    fseek(fp, 0, SEEK_SET);
+
+//   game_state_t* state = malloc(sizeof(game_state_t));
+//    state->board = malloc(sizeof(char*) * count_row);
+//    state->num_rows = count_row;
+//    for (int i = 0; i < count_row; i++) {
+//        fgets(buffer, 2000, fp);
+//        state->board[i] = malloc(sizeof(char) * strlen(buffer));
+//        strcpy(state->board[i], buffer);
+        /* Substitute the '\n' to '\0' at the end of string */
+//        state->board[i][strlen(buffer) - 1] = '\0';
+//    }
+
+    // printf("\nRow number is: %u.\n", state->num_rows);
+
+    state->snakes = NULL;
+    state->num_snakes = 0;
+
+    fclose(fp);
+    return state;
 }
 
 /*
@@ -353,12 +433,86 @@ game_state_t* load_board(char* filename) {
   fill in the head row and col in the struct.
 */
 static void find_head(game_state_t* state, unsigned int snum) {
-  // TODO: Implement this function.
-  return;
+    unsigned int which_head = 0;
+    /* Regardless the first and the last row */
+    for (unsigned i = 1; i < state->num_rows - 1; i++) {
+        for (unsigned j = 1; state->board[i][j] != '\0'; j++) {
+            if (is_head(state->board[i][j])) {
+                if (which_head == snum) {
+                   state->snakes[snum].head_row = i;
+                   state->snakes[snum].head_col = j;
+                   return;
+                }
+                which_head++;
+            }
+        }
+    }
+    return;
 }
 
 /* Task 6.2 */
 game_state_t* initialize_snakes(game_state_t* state) {
-  // TODO: Implement this function.
-  return NULL;
+    unsigned int total_snake = 0;
+    /* Regardless the first and the last row */
+    for (int i = 1; i < state->num_rows - 1; i++) {
+        for (int j = 1; state->board[i][j] != '\0'; j++) {
+            if (is_head(state->board[i][j])) {
+                total_snake++;
+            }
+        }
+    }
+    state->num_snakes = total_snake;
+    state->snakes = malloc(sizeof(snake_t) * total_snake);
+    for (unsigned i = 0; i < total_snake; i++) {
+        find_head(state, i);
+        state->snakes[i].live = true;
+        find_tail(state, i);
+    }
+    return state;
 }
+
+/*
+  Find and set the corresponding tail of given head
+*/
+static void find_tail(game_state_t* state, unsigned snum) {
+    /* Regardless the first and the last row */
+    for (unsigned i = 1; i < state->num_rows - 1; i++) {
+        for (unsigned j = 1; state->board[i][j] != '\0'; j++) {
+            /* If find a tail */
+            if (is_tail(state->board[i][j])) {
+                /* Check if the tail matches the given head */
+                if (match_head(state, i, j, snum)) {
+                    state->snakes[snum].tail_row = i;
+                    state->snakes[snum].tail_col = j;
+                    return;
+                }
+            }
+        }
+    }
+}
+
+/* Find the head of given tail */
+static bool match_head(game_state_t* state, unsigned row, unsigned col, unsigned snum) {
+    char head_board = state->board[row][col];
+    while (!is_head(head_board)) {
+        switch (head_board) {
+            case 'a':
+            case '<':
+            case 'd':
+            case '>':
+                col = get_next_col(col, head_board);
+                break;
+            case 's':
+            case 'v':
+            case 'w':
+            case '^':
+                row = get_next_row(row, head_board);
+                break;
+        }
+
+        head_board = get_board_at(state, row, col);
+    }
+    /* If it is the desired head */
+    return state->snakes[snum].head_row == row && state->snakes[snum].head_col == col;
+}
+
